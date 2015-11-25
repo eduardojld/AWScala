@@ -1,12 +1,36 @@
 package awscala.s3
 
 import java.io.{ ByteArrayInputStream, File, InputStream }
+import javax.crypto.spec.SecretKeySpec;
 
 import awscala._
 import com.amazonaws.services.{ s3 => aws }
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+
+object S3EncryptionClient {
+
+  def apply(encryptionMaterials: aws.model.StaticEncryptionMaterialsProvider = new aws.model.StaticEncryptionMaterialsProvider(new aws.model.EncryptionMaterials(S3EncryptionClient.loadSymmetricAESKey())),
+    credentialsProvider: CredentialsProvider = CredentialsLoader.load())(implicit region: Region = Region.default()): S3 = new S3EncryptionClient(credentialsProvider, encryptionMaterials).at(region)
+
+  def at(region: Region): S3 = apply()(region)
+
+  def loadSymmetricAESKey(): SecretKeySpec = {
+    import java.io.File;
+    import java.io.FileInputStream;
+    import javax.crypto.SecretKey;
+
+    val path = sys.env.get("AWS_S3_ENCRYPTION_FILE").get
+    val keyFile = new File(path);
+    val keyfis = new FileInputStream(keyFile);
+    val encodedPrivateKey = new Array[Byte](keyFile.length().toInt)
+    keyfis.read(encodedPrivateKey);
+    keyfis.close();
+
+    new SecretKeySpec(encodedPrivateKey, "AES");
+  }
+}
 
 object S3 {
 
@@ -17,6 +41,7 @@ object S3 {
   def apply(accessKeyId: String, secretAccessKey: String)(implicit region: Region): S3 = apply(BasicCredentialsProvider(accessKeyId, secretAccessKey)).at(region)
 
   def at(region: Region): S3 = apply()(region)
+
 }
 
 /**
@@ -112,6 +137,13 @@ trait S3 extends aws.AmazonS3 {
 
   def getObject(bucket: Bucket, key: String, versionId: String): Option[S3Object] = try {
     Option(getObject(new aws.model.GetObjectRequest(bucket.name, key, versionId))).map(obj => S3Object(bucket, obj))
+  } catch {
+    case e: aws.model.AmazonS3Exception => None
+  }
+
+  def getObject(bucket: Bucket, key: String, localFile: File): Option[S3Object] = try {
+    Option(getObject(new aws.model.GetObjectRequest(bucket.name, key), localFile))
+    Option(getObject(new aws.model.GetObjectRequest(bucket.name, key))).map(obj => S3Object(bucket, obj))
   } catch {
     case e: aws.model.AmazonS3Exception => None
   }
@@ -291,3 +323,12 @@ class S3Client(credentialsProvider: CredentialsProvider = CredentialsLoader.load
   override def createBucket(name: String): Bucket = super.createBucket(name)
 }
 
+class S3EncryptionClient(credentialsProvider: CredentialsProvider = CredentialsLoader.load(),
+  encryptionMaterials: aws.model.StaticEncryptionMaterialsProvider = new aws.model.StaticEncryptionMaterialsProvider(
+    new aws.model.EncryptionMaterials(S3EncryptionClient.loadSymmetricAESKey())))
+    extends aws.AmazonS3EncryptionClient(credentialsProvider, encryptionMaterials)
+    with S3 {
+
+  override def createBucket(name: String): Bucket = super.createBucket(name)
+
+}
