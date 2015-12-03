@@ -9,7 +9,7 @@ object AwscalaProject extends Build {
 
   lazy val mainSettings = Seq(
     organization := "com.github.seratch",
-    name := "awscala",
+    name := "awscalafork",
     version := "0.5.5",
     scalaVersion := "2.11.7",
     crossScalaVersions := Seq("2.11.7", "2.10.6"),
@@ -76,4 +76,3 @@ object AwscalaProject extends Build {
   )
 
 }
-
