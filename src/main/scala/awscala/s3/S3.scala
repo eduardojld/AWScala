@@ -219,10 +219,10 @@ trait S3 extends aws.AmazonS3 {
     completeStream(firstListing)
   }
 
-  def getKeysByMarker(bucket: Bucket, marker: String): Seq[String] = {
+  def getKeysByMarker(bucket: Bucket, prefix: String, marker: String): Seq[String] = {
     import com.amazonaws.services.s3.model.{ ListObjectsRequest, ObjectListing }
     import scala.collection.JavaConversions._
-    val request = new ListObjectsRequest().withBucketName(bucket.getName).withMarker(marker)
+    val request = new ListObjectsRequest().withBucketName(bucket.getName).withPrefix(prefix).withMarker(marker)
     val firstListing = listObjects(request)
     firstListing.getObjectSummaries.map { x => x.getKey }
   }
