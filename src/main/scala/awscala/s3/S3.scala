@@ -219,6 +219,14 @@ trait S3 extends aws.AmazonS3 {
     completeStream(firstListing)
   }
 
+  def getKeysByMarker(bucket: Bucket, marker: String): Seq[String] = {
+    import com.amazonaws.services.s3.model.{ ListObjectsRequest, ObjectListing }
+    import scala.collection.JavaConversions._
+    val request = new ListObjectsRequest().withBucketName(bucket.getName).withMarker(marker)
+    val firstListing = listObjects(request)
+    firstListing.getObjectSummaries.map { x => x.getKey }
+  }
+
   // acl
   def acl(obj: S3Object): AccessControlList = acl(obj.bucket, obj.key)
 
